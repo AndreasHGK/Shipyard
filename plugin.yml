@@ -1,0 +1,21 @@
+name: Shipyard
+main: AndreasHGK\Shipyard\Shipyard
+version: 0.1.0-ALPHA
+api: 3.0.1
+load: POSTWORLD
+author: AndreasHGK
+description: Build and fly ships. Battle others
+commands:
+ shipyard:
+  description: "main Shipyard command"
+  usage: "/shipyard"
+  permission: shipyard.command
+
+permissions:
+ shipyard:
+  default: op
+  description: "Shipyard root permission"
+  children:
+   shipyard.command:
+    default: true
+    description: "permission for /shipyard"
