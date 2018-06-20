@@ -93,6 +93,9 @@ class Shipyard extends PluginBase implements Listener{
 			if(!in_array($player, $this->cooldown)){
 				
 				#make the ship move and set cooldown for player
+				$player->sendMessage(C::RED."X: ".$player->getDirectionVector()->x);
+				$player->sendMessage(C::RED."Y: ".$player->getDirectionVector()->y);
+				$player->sendMessage(C::RED."Z: ".$player->getDirectionVector()->z);
 				$player->sendMessage(C::RED."Direction: ".$this->getFacing($player));
 				$this->setControllerCooldown($player);
 			}
@@ -106,8 +109,8 @@ class Shipyard extends PluginBase implements Listener{
 		$y = $player->getDirectionVector()->y; 
 		$z = $player->getDirectionVector()->z;
 		
-		if($y >= 0.250) return "Up";
-		if($y <= -0.25) return "Down";
+		if($y >= 0.850) return "Up";
+		if($y <= -0.85) return "Down";
 		
 		if($x >= 0.50) return "South";
 		if($x <= -0.5) return "East";
