@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace AndreasHGK\Shipyard;
 
-use AndreasHGK\Shipyard\Controller\ControllerCooldown;
+use AndreasHGK\Shipyard\ControllerCooldown;
 
 use pocketmine\plugin\PluginBase;
 use pocketmine\command\CommandSender;
@@ -17,7 +17,9 @@ use pocketmine\nbt\NBT;
 use pocketmine\nbt\tag\CompoundTag;
 use pocketmine\inventory\Inventory;
 use pocketmine\event\player\PlayerInteractEvent;
+use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\Listener;
+use pocketmine\block\Block;
 use pocketmine\scheduler\Task;
 use pocketmine\scheduler\TaskHandler;
 use pocketmine\scheduler\TaskScheduler;
@@ -28,7 +30,10 @@ class Shipyard extends PluginBase implements Listener{
 	public $version = "0.1.0-ALPHA";
 	public $id = 280;
 	public $cooldown = [];
-
+	public $posone = [];
+	public $postwo = [];
+	public $request = [];
+	
 	public function onEnable() : void{
 		$this->getLogger()->info(C::GREEN."enabled Shipyard v".$this->version);
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
@@ -72,6 +77,16 @@ class Shipyard extends PluginBase implements Listener{
 					case "list":
 					$sender->sendMessage(C::RED."comming in a future version!");
 					return true;
+					
+					case "pos1":
+					$this->request[$name] = 1;
+					$sender->sendMessage(C::GREEN."Now selecting first position");
+					return true;
+					
+					case "pos2":
+					$this->request[$name] = 2;
+					$sender->sendMessage(C::GREEN."Now selecting second position");
+					return true;
 				}
 				
 				return true;
@@ -93,13 +108,38 @@ class Shipyard extends PluginBase implements Listener{
 			if(!in_array($player, $this->cooldown)){
 				
 				#make the ship move and set cooldown for player
-				$player->sendMessage(C::RED."X: ".$player->getDirectionVector()->x);
-				$player->sendMessage(C::RED."Y: ".$player->getDirectionVector()->y);
-				$player->sendMessage(C::RED."Z: ".$player->getDirectionVector()->z);
+				#$player->sendMessage(C::RED."X: ".$player->getDirectionVector()->x);
+				#$player->sendMessage(C::RED."Y: ".$player->getDirectionVector()->y);
+				#$player->sendMessage(C::RED."Z: ".$player->getDirectionVector()->z);
 				$player->sendMessage(C::RED."Direction: ".$this->getFacing($player));
 				$this->setControllerCooldown($player);
 			}
 		}
+	}
+	
+	public function blockBreak(BlockBreakEvent $event){
+		
+		#get block position
+		$player = $event->getPlayer();
+		$name = $event->getPlayer()->getName();
+		$block = $event->getBlock();
+		$pos = $block->asVector3();
+		
+		#check if player requests pos1 or 2
+		if(isset($this->request[$name])){
+			if($this->request[$name] == 1){
+				$player->sendMessage(C::RED."POS1: ".$pos);
+			}elseif($this->request[$name] == 2){
+				$player->sendMessage(C::RED."POS2: ".$pos);
+			}
+			unset($this->request[$name]);
+		}
+	}
+	
+	public function createShip(Player $owner){
+		
+		#do the ship creation magic
+		
 	}
 	
 	public function getFacing(Player $player) : string{
@@ -138,7 +178,7 @@ class Shipyard extends PluginBase implements Listener{
 	public function helpMessage(Player $player) : void{
 		
 		#send a help message
-		$player->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD."SHIPYARD ".C::RESET.C::GRAY."v".$this->version.C::RESET.C::DARK_GRAY." =----".C::GOLD."\n/shipyard help".C::	GRAY." - view this message".C::GOLD."\n/shipyard get".C::GRAY." - get a ship controller".C::GOLD."\n/shipyard create".C::GRAY." - make a new ship".C::GOLD."\n/shipyard remove".C::GRAY." - remove a ship".C::GOLD."\n/shipyard list".C::GRAY." - list all the ships you own");
+		$player->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD."SHIPYARD ".C::RESET.C::GRAY."v".$this->version.C::RESET.C::DARK_GRAY." =----".C::GOLD."\n/shipyard help".C::	GRAY." - view this message".C::GOLD."\n/shipyard get".C::GRAY." - get a ship controller".C::GOLD."\n/shipyard create".C::GRAY." - make a new ship".C::GOLD."\n/shipyard remove".C::GRAY." - remove a ship".C::GOLD."\n/shipyard list".C::GRAY." - list all the ships you own".C::GOLD."\n/shipyard pos1".C::GRAY." - select a first position for your ship".C::GOLD."\n/shipyard pos2".C::GRAY." - select second a position for your ship");
 	}
 	
 	public function giveController(Player $player) : void{
