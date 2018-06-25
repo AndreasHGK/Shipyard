@@ -1,6 +1,6 @@
 name: Shipyard
 main: AndreasHGK\Shipyard\Shipyard
-version: 0.1.0-ALPHA
+version: 1.0.0-ALPHA
 api: 3.0.0
 load: POSTWORLD
 author: AndreasHGK

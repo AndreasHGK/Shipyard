@@ -15,7 +15,6 @@ class ControllerCooldown extends Task{
 	
 
     public function __construct(Shipyard $plugin) {
-        #parent::__construct($plugin);
         $this->plugin = $plugin;
     }
 
