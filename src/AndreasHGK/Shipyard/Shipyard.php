@@ -12,6 +12,7 @@ use pocketmine\command\CommandSender;
 use pocketmine\command\PluginCommand;
 use pocketmine\command\Command;
 use pocketmine\utils\Config;
+use pocketmine\level\Level;
 use pocketmine\Player;
 use pocketmine\item\Item;
 use pocketmine\nbt\NBT;
@@ -187,7 +188,7 @@ class Shipyard extends PluginBase implements Listener{
 		$name = $event->getPlayer()->getName();
 		$block = $event->getBlock();
 		$bpos = $event->getBlock()->asVector3();
-		$level = $player->getLevel();
+		$level = $block->getLevel();
 		
 		#check if player requests pos1 or 2
 		if(isset($this->request[$name])){
@@ -199,7 +200,8 @@ class Shipyard extends PluginBase implements Listener{
 				$this->pos2[$name] = $bpos;
 				$player->sendMessage(C::RED."POS2: ".$bpos);
 			}
-			$level->setBlock($bpos, Block::get($block->getId()), true, true);			
+			$event->setCancelled();
+			#$level->setBlock($block, $block);			
 			unset($this->request[$name]);
 		}
 	}
