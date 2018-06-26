@@ -77,9 +77,14 @@ class Shipyard extends PluginBase implements Listener{
 					#check if everything is set and call createShip
 					if(!empty($args[1])){
 						if(isset($this->pos1[$name]) && isset($this->pos2[$name])){
-							$this->createShip(strtolower($args[1]), $sender, $this->pos1[$name], $this->pos2[$name], $sender->getLevel()->getName());
-							$sender->sendMessage(C::GREEN."Ship '".strtolower($args[1])."' created.");
-							return true;
+							if(!$this->shipExists($args[1])){
+								$this->createShip(strtolower($args[1]), $sender, $this->pos1[$name], $this->pos2[$name], $sender->getLevel()->getName());
+								$sender->sendMessage(C::GREEN."Ship '".strtolower($args[1])."' created.");
+								return true;
+							}else{
+								$sender->sendMessage(C::RED."That ship already exists!");
+								return true;
+							}
 						} else {
 							$sender->sendMessage(C::RED."You didn't set both positions");
 							return true;
@@ -92,12 +97,29 @@ class Shipyard extends PluginBase implements Listener{
 					break;
 					
 					case "remove":
-					$sender->sendMessage(C::RED."comming in a future version!");
+					$ship = $args[1];
+					if($this->shipExists($ship)){
+						$this->getShip($ship)->remove();
+						$sender->sendMessage(C::GREEN."Ship succesfully removed!");
+						return true;
+					}else{
+						$sender->sendMessage(C::RED."That ship doesn't exist!");
+						return true;
+					}
 					return true;
 					break;
 					
 					case "list":
-					$sender->sendMessage(C::RED."comming in a future version!");
+					$ownedShips = $this->ownedShips($sender);
+					if($ownedShips != []){
+						$sender->sendMessage(C::YELLOW."Ships you own:");
+						foreach($ownedShips as $ship){
+							$sender->sendMessage(C::GRAY." -".$ship->getName());
+						}
+						return true;
+					}else{
+						$sender->sendMessage(C::RED."You don't own any ships!");
+					}
 					return true;
 					break;
 					
@@ -127,8 +149,8 @@ class Shipyard extends PluginBase implements Listener{
 						}
 						return true;
 					}
-					if(isset($this->ships[$args[1]])){
-						if($this->ships[$args[1]]->getOwner() == $sender){
+					if($this->shipExists($args[1])){
+						if($this->getShip($args[1])->getOwner() == $sender){
 							if(in_array($args[1], $this->control)){
 								$sender->sendMessage(C::RED."Someone is already controlling this ship!");
 								return true;
@@ -181,6 +203,16 @@ class Shipyard extends PluginBase implements Listener{
 		}
 	}
 	
+	public function ownedShips(Player $player) : array{
+		$ownedships = [];
+		foreach($this->ships as $ship){
+			if($ship->getOwner() == $player){
+				array_push($ownedships, $ship);
+			}
+		}
+		return $ownedships;
+	}
+	
 	public function blockBreak(BlockBreakEvent $event){
 		
 		#get block position
@@ -208,6 +240,10 @@ class Shipyard extends PluginBase implements Listener{
 	
 	public function getShip(string $name) : Ship{
 		return $this->ships[$name];
+	}
+	
+	public function shipExists(string $name) : bool{
+		return isset($this->ships[$name]);
 	}
 	
 	public function createShip(string $name, Player $owner, Vector3 $pos1, Vector3 $pos2, string $world) : void{
