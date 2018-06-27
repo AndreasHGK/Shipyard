@@ -10,7 +10,7 @@ use pocketmine\scheduler\Task;
 class ControllerCooldown extends Task{
 	
 	public $plugin;
-    public $seconds = 0;
+    public $ticks = 0;
 	public $player;
 	
 
@@ -23,9 +23,9 @@ class ControllerCooldown extends Task{
     }
 
     public function onRun($tick) {
-        if($this->seconds === 1) {
+        if($this->ticks === 10) {
             $this->getPlugin()->removeTask($this->getTaskId());
         }
-        $this->seconds++;
+        $this->ticks++;
     }
 }

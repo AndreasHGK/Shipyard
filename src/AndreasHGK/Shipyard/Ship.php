@@ -55,6 +55,15 @@ class Ship{
 		return array($this->pos2->getX(),$this->pos2->getY(),$this->pos2->getZ());
 	}
 	
+	public function getSize() : int{
+		#will be used for ship classes in the future
+		$length = abs($this->pos1->getX() - $this->pos2->getX());
+		$height = abs($this->pos1->getY() - $this->pos2->getY());
+		$width = abs($this->pos1->getZ() - $this->pos2->getZ());
+		$size = $length*$height*$width;
+		return $size;
+	}
+	
 	public function getBlocks() : array{
 		$blocks = [];
 
@@ -68,6 +77,21 @@ class Ship{
 			}
 		}
 		return $blocks;
+	}
+	
+	public function getBlocks3D() : array{
+		$array = [];
+
+		for($x = 0; $x <= abs($this->getPos1()->getX() - $this->getPos2()->getX()); $x++){
+			for($y = 0; $y <= abs($this->getPos1()->getY() - $this->getPos2()->getY()); $y++){
+				for($z = 0; $z <= abs($this->getPos1()->getZ() - $this->getPos2()->getZ()); $z++){
+					$pos = new Vector3($x, $y, $z);
+					$block = $this->shipyard->getServer()->getLevelByName($this->level)->getBlock($pos);
+					array_push($array[$y[$z]], $block);
+				}
+			}
+		}
+		return $array;
 	}
 	
 	public function getWorld() : string{

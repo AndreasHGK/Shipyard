@@ -7,13 +7,14 @@ namespace AndreasHGK\Shipyard;
 use AndreasHGK\Shipyard\ControllerCooldown;
 use AndreasHGK\Shipyard\Ship;
 
+use pocketmine\Server;
+use pocketmine\Player;
 use pocketmine\plugin\PluginBase;
 use pocketmine\command\CommandSender;
 use pocketmine\command\PluginCommand;
 use pocketmine\command\Command;
 use pocketmine\utils\Config;
-use pocketmine\level\Level;
-use pocketmine\Player;
+use pocketmine\level\Level;	
 use pocketmine\item\Item;
 use pocketmine\nbt\NBT;
 use pocketmine\math\Vector3;
@@ -38,10 +39,15 @@ class Shipyard extends PluginBase implements Listener{
 	public $pos1 = [];
 	public $pos2 = [];
 	public $request = [];
+	public $db;
 	
 	public function onEnable() : void{
 		$this->getLogger()->info(C::GREEN."enabled Shipyard v".$this->version);
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
+		@mkdir($this->getDataFolder());
+		$this->saveResource("ships.yml"); 
+		$this->db = new Config($this->getDataFolder() . "ships.yml", Config::YAML);
+		$this->loadShips();
 	}
 
 	public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool{
@@ -80,6 +86,7 @@ class Shipyard extends PluginBase implements Listener{
 							if(!$this->shipExists($args[1])){
 								$this->createShip(strtolower($args[1]), $sender, $this->pos1[$name], $this->pos2[$name], $sender->getLevel()->getName());
 								$sender->sendMessage(C::GREEN."Ship '".strtolower($args[1])."' created.");
+								$this->saveShips();
 								return true;
 							}else{
 								$sender->sendMessage(C::RED."That ship already exists!");
@@ -101,6 +108,7 @@ class Shipyard extends PluginBase implements Listener{
 					if($this->shipExists($ship)){
 						$this->getShip($ship)->remove();
 						$sender->sendMessage(C::GREEN."Ship succesfully removed!");
+						$this->saveShips();
 						return true;
 					}else{
 						$sender->sendMessage(C::RED."That ship doesn't exist!");
@@ -169,6 +177,23 @@ class Shipyard extends PluginBase implements Listener{
 					}
 					return true;
 					break;
+					
+					case "info":
+					#request a new pos1
+					if($this->shipExists($args[1])){
+						$sender->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD.$this->getShip($args[1])->getName().C::RESET.C::DARK_GRAY." =----".C::GOLD."\n/Owner".C::GRAY." : ".$this->getShip($args[1])->getOwner()."\n/Size".C::GRAY." : ".$this->getShip($args[1])->getSize()."\n/World".C::GRAY." : ".$this->getShip($args[1])->getWorld().C::GOLD."\n/Pos1".C::	GRAY." : ".$this->getShip($args[1])->getPos1().C::GOLD."\n/Pos2".C::GRAY." : ".$this->getShip($args[1])->getPos2());
+						return true;
+					}else{
+						$sender->sendMessage(C::GREEN."That ship doesn't exist");
+						return true;
+					}
+					return true;
+					break;
+					
+					default:
+					$sender->sendMessage(C::RED."That subcommand doesn't exist!");
+					return true;
+					break;
 				}
 				
 				return true;
@@ -179,11 +204,18 @@ class Shipyard extends PluginBase implements Listener{
 		}
 	}
 	
-	public function saveShips(){
-		
+	public function loadShips() : void{
+		$this->ships = $this->getConfig()->get("ships");
 	}
 	
-	public function onInteract(PlayerInteractEvent $event){
+	public function saveShips() : void{
+		foreach($this->ships as $ship){
+			$data["ships"][$ship->getName()] = $ship;
+		}
+		$this->db->set("ships", $data); 
+	}
+	
+	public function onInteract(PlayerInteractEvent $event) : void{
 		$player = $event->getPlayer();
 		$name = $player->getName();
 		$hand = $player->getInventory()->getItemInHand();
@@ -197,15 +229,16 @@ class Shipyard extends PluginBase implements Listener{
 				$player->sendMessage(C::RED."Direction: ".$this->getFacing($player));
 				$this->setControllerCooldown($player);
 				if(isset($this->control[$name])){
-					$this->moveShip($this->control[$name], $this->getShip($this->control[$name])->getWorld(), $this->getFacing($player), 5);
+					$this->moveShip($player, $this->control[$name], $this->getShip($this->control[$name])->getWorld(), $this->getFacing($player), 5);
 				}
 			}
 		}
 	}
 	
 	public function ownedShips(Player $player) : array{
+		#list the ships this player owns
 		$ownedships = [];
-		foreach($this->ships as $ship){
+			foreach($this->ships as $ship){
 			if($ship->getOwner() == $player){
 				array_push($ownedships, $ship);
 			}
@@ -213,7 +246,7 @@ class Shipyard extends PluginBase implements Listener{
 		return $ownedships;
 	}
 	
-	public function blockBreak(BlockBreakEvent $event){
+	public function blockBreak(BlockBreakEvent $event) : void{
 		
 		#get block position
 		$player = $event->getPlayer();
@@ -251,7 +284,7 @@ class Shipyard extends PluginBase implements Listener{
 		new Ship($this, $name, $owner, $pos1, $pos2, $world);
 	}
 	
-	public function moveShip(string $ship, string $world, string $direction, int $speed) : void{
+	public function moveShip(Player $player, string $ship, string $world, string $direction, int $speed) : void{
 		#move the ship
 		#get initial variables
 		$world = $this->getServer()->getLevelByName($world);
@@ -269,41 +302,47 @@ class Shipyard extends PluginBase implements Listener{
 			$move = new Vector3(0, $speed, 0);
 			$this->getShip($ship)->pos1 = new Vector3($x, $y+$speed, $z);
 			$this->getShip($ship)->pos2 = new Vector3($x1, $y1+$speed, $z1);
+			$player->teleport(new Vector3($player->getX(), $player->getY()+$speed, $player->getZ()));
 			break;
 			
 			case "Down":
 			$move = new Vector3(0, -$speed, 0);
 			$this->getShip($ship)->pos1 = new Vector3($x, $y-$speed, $z);
 			$this->getShip($ship)->pos2 = new Vector3($x1, $y1-$speed, $z1);
+			$player->teleport(new Vector3($player->getX(), $player->getY()-$speed, $player->getZ()));
 			break;
 			
 			case "West":
 			$move = new Vector3($speed, 0, 0);
 			$this->getShip($ship)->pos1 = new Vector3($x+$speed, $y, $z);
 			$this->getShip($ship)->pos2 = new Vector3($x1+$speed, $y1, $z1);
+			$player->teleport(new Vector3($player->getX()+$speed, $player->getY(), $player->getZ()));
 			break;
 			
 			case "East":
 			$move = new Vector3(-$speed, 0, 0);
 			$this->getShip($ship)->pos1 = new Vector3($x-$speed, $y, $z);
 			$this->getShip($ship)->pos2 = new Vector3($x1-$speed, $y1, $z1);
+			$player->teleport(new Vector3($player->getX()-$speed, $player->getY(), $player->getZ()));
 			break;
 			
 			case "North":
 			$move = new Vector3(0, 0, $speed);
 			$this->getShip($ship)->pos1 = new Vector3($x, $y, $z+$speed);
 			$this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1+$speed);
+			$player->teleport(new Vector3($player->getX(), $player->getY(), $player->getZ()+$speed));
 			break;
 			
 			case "South":
 			$move = new Vector3(0, 0, -$speed);
 			$this->getShip($ship)->pos1 = new Vector3($x, $y, $z-$speed);
 			$this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1-$speed);
+			$player->teleport(new Vector3($player->getX(), $player->getY(), $player->getZ()-$speed));
 			break;
 			
 			default:
-			#error code 1
-			$player->sendMessage(C::RED."A movement error has occured! E:0");
+			#error code 01
+			$player->sendMessage(C::RED."A movement error has occured! -01");
 			break;
 		}
 		
@@ -315,6 +354,7 @@ class Shipyard extends PluginBase implements Listener{
 			$loc = $block->asVector3();
 			$world->setBlock(new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ()), $block);
 		}
+		$this->saveShips();
 	}
 	
 	public function getFacing(Player $player) : string{
@@ -338,7 +378,7 @@ class Shipyard extends PluginBase implements Listener{
 		
 		#set a cooldown for a player
 		$task = new ControllerCooldown($this);	
-		$handler = $this->getScheduler()->scheduleRepeatingTask($task, 20);
+		$handler = $this->getScheduler()->scheduleRepeatingTask($task, 1);
 		$task->setHandler($handler);
 		$this->cooldown[$task->getTaskId()] = $player;
 	}
@@ -353,7 +393,7 @@ class Shipyard extends PluginBase implements Listener{
 	public function helpMessage(Player $player) : void{
 		
 		#send a help message
-		$player->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD."SHIPYARD ".C::RESET.C::GRAY."v".$this->version.C::RESET.C::DARK_GRAY." =----".C::GOLD."\n/shipyard help".C::	GRAY." - view this message".C::GOLD."\n/shipyard get".C::GRAY." - get a ship controller".C::GOLD."\n/shipyard create".C::GRAY." - make a new ship".C::GOLD."\n/shipyard remove".C::GRAY." - remove a ship".C::GOLD."\n/shipyard list".C::GRAY." - list all the ships you own".C::GOLD."\n/shipyard pos1".C::GRAY." - select a first position for your ship".C::GOLD."\n/shipyard pos2".C::GRAY." - select a second position for your ship".C::GOLD."\n/shipyard control".C::GRAY." - take control of a ship");
+		$player->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD."SHIPYARD ".C::RESET.C::GRAY."v".$this->version.C::RESET.C::DARK_GRAY." =----".C::GOLD."\n/shipyard help".C::	GRAY." - view this message".C::GOLD."\n/shipyard get".C::GRAY." - get a ship controller".C::GOLD."\n/shipyard create".C::GRAY." - make a new ship".C::GOLD."\n/shipyard remove".C::GRAY." - remove a ship".C::GOLD."\n/shipyard list".C::GRAY." - list all the ships you own".C::GOLD."\n/shipyard pos1".C::GRAY." - select a first position for your ship".C::GOLD."\n/shipyard pos2".C::GRAY." - select a second position for your ship".C::GOLD."\n/shipyard control".C::GRAY." - take control of a ship".C::GOLD."\n/shipyard info".C::GRAY." - display info of a certain ship");
 	}
 	
 	public function giveController(Player $player) : void{
@@ -373,5 +413,6 @@ class Shipyard extends PluginBase implements Listener{
 	
 	public function onDisable() : void{
 		$this->getLogger()->info(C::RED."disabled Shipyard v".$this->version);
+		$this->saveShips();
 	}
 }
