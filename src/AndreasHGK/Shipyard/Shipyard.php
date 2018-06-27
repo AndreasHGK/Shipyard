@@ -253,6 +253,7 @@ class Shipyard extends PluginBase implements Listener{
 	
 	public function moveShip(string $ship, string $world, string $direction, int $speed) : void{
 		#move the ship
+		#get initial variables
 		$world = $this->getServer()->getLevelByName($world);
 		$blocks = $this->getShip($ship)->getBlocks();
 		$x = $this->getShip($ship)->getPos1()->getX();
@@ -263,36 +264,50 @@ class Shipyard extends PluginBase implements Listener{
 		$z1 = $this->getShip($ship)->getPos2()->getZ();
 		
 		switch($direction){
+			#deterimine in which direction to move the ship
 			case "Up":
 			$move = new Vector3(0, $speed, 0);
 			$this->getShip($ship)->pos1 = new Vector3($x, $y+$speed, $z);
 			$this->getShip($ship)->pos2 = new Vector3($x1, $y1+$speed, $z1);
+			break;
 			
 			case "Down":
 			$move = new Vector3(0, -$speed, 0);
 			$this->getShip($ship)->pos1 = new Vector3($x, $y-$speed, $z);
 			$this->getShip($ship)->pos2 = new Vector3($x1, $y1-$speed, $z1);
+			break;
 			
-			case "South":
+			case "West":
 			$move = new Vector3($speed, 0, 0);
 			$this->getShip($ship)->pos1 = new Vector3($x+$speed, $y, $z);
 			$this->getShip($ship)->pos2 = new Vector3($x1+$speed, $y1, $z1);
+			break;
 			
 			case "East":
 			$move = new Vector3(-$speed, 0, 0);
 			$this->getShip($ship)->pos1 = new Vector3($x-$speed, $y, $z);
 			$this->getShip($ship)->pos2 = new Vector3($x1-$speed, $y1, $z1);
+			break;
 			
 			case "North":
 			$move = new Vector3(0, 0, $speed);
 			$this->getShip($ship)->pos1 = new Vector3($x, $y, $z+$speed);
 			$this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1+$speed);
+			break;
 			
-			case "West":
+			case "South":
 			$move = new Vector3(0, 0, -$speed);
 			$this->getShip($ship)->pos1 = new Vector3($x, $y, $z-$speed);
 			$this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1-$speed);
+			break;
+			
+			default:
+			#error code 1
+			$player->sendMessage(C::RED."A movement error has occured! E:0");
+			break;
 		}
+		
+		#make everything air and then place the blocks 5 blocks further
 		foreach($blocks as $block){
 			$world->setBlock($block, Block::get(0));
 		}
@@ -312,10 +327,10 @@ class Shipyard extends PluginBase implements Listener{
 		if($y >= 0.850) return "Up";
 		if($y <= -0.85) return "Down";
 		
-		if($x >= 0.50) return "South";
+		if($x >= 0.50) return "West";
 		if($x <= -0.5) return "East";
 		if($z >= 0.50) return "North";
-		if($z <= -0.5) return "West";
+		if($z <= -0.5) return "South";
 		return null;
 	}
 	
