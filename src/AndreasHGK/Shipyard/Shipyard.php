@@ -254,24 +254,51 @@ class Shipyard extends PluginBase implements Listener{
 	public function moveShip(string $ship, string $world, string $direction, int $speed) : void{
 		#move the ship
 		$world = $this->getServer()->getLevelByName($world);
+		$blocks = $this->getShip($ship)->getBlocks();
+		$x = $this->getShip($ship)->getPos1()->getX();
+		$y = $this->getShip($ship)->getPos1()->getY();
+		$z = $this->getShip($ship)->getPos1()->getZ();
+		$x1 = $this->getShip($ship)->getPos2()->getX();
+		$y1 = $this->getShip($ship)->getPos2()->getY();
+		$z1 = $this->getShip($ship)->getPos2()->getZ();
+		
 		switch($direction){
 			case "Up":
-			$pos = new Vector3($x, $y+$speed, $z);
+			$move = new Vector3(0, $speed, 0);
+			$this->getShip($ship)->pos1 = new Vector3($x, $y+$speed, $z);
+			$this->getShip($ship)->pos2 = new Vector3($x1, $y1+$speed, $z1);
 			
 			case "Down":
-			$pos = new Vector3($x, $y-$speed, $z);
+			$move = new Vector3(0, -$speed, 0);
+			$this->getShip($ship)->pos1 = new Vector3($x, $y-$speed, $z);
+			$this->getShip($ship)->pos2 = new Vector3($x1, $y1-$speed, $z1);
 			
 			case "South":
-			$pos = new Vector3($x+$speed, $y, $z);
+			$move = new Vector3($speed, 0, 0);
+			$this->getShip($ship)->pos1 = new Vector3($x+$speed, $y, $z);
+			$this->getShip($ship)->pos2 = new Vector3($x1+$speed, $y1, $z1);
 			
 			case "East":
-			$pos = new Vector3($x-$speed, $y, $z);
+			$move = new Vector3(-$speed, 0, 0);
+			$this->getShip($ship)->pos1 = new Vector3($x-$speed, $y, $z);
+			$this->getShip($ship)->pos2 = new Vector3($x1-$speed, $y1, $z1);
 			
 			case "North":
-			$pos = new Vector3($x, $y, $z+$speed);
+			$move = new Vector3(0, 0, $speed);
+			$this->getShip($ship)->pos1 = new Vector3($x, $y, $z+$speed);
+			$this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1+$speed);
 			
 			case "West":
-			$pos = new Vector3($x, $y, $z-$speed);
+			$move = new Vector3(0, 0, -$speed);
+			$this->getShip($ship)->pos1 = new Vector3($x, $y, $z-$speed);
+			$this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1-$speed);
+		}
+		foreach($blocks as $block){
+			$world->setBlock($block, Block::get(0));
+		}
+		foreach($blocks as $block){
+			$loc = $block->asVector3();
+			$world->setBlock(new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ()), $block);
 		}
 	}
 	

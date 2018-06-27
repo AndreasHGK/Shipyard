@@ -7,6 +7,8 @@ namespace AndreasHGK\Shipyard;
 use AndreasHGK\Shipyard\Shipyard;
 use pocketmine\math\Vector3;
 use pocketmine\Player;
+use pocketmine\block\Block;
+use pocketmine\level\Level;
 
 class Ship{
 	
@@ -15,16 +17,16 @@ class Ship{
 	public $owner;
 	public $pos1;
 	public $pos2;
-	public $world;
+	public $level;
 	public $blocks = [];
 	
-	public function __construct(Shipyard $plugin, string $name, Player $owner, Vector3 $pos1, Vector3 $pos2, string $world){
+	public function __construct(Shipyard $plugin, string $name, Player $owner, Vector3 $pos1, Vector3 $pos2, string $level){
 		$this->shipyard = $plugin;
 		$this->name = strtolower($name);
 		$this->owner = $owner;
 		$this->pos1 = $pos1;
 		$this->pos2 = $pos2;
-		$this->world = $world;
+		$this->level = $level;
 		$this->create();
 	}
 	
@@ -37,16 +39,39 @@ class Ship{
 		return $this->owner;
 	}
 
-	public function getPos1() : array{
+	public function getPos1() : Vector3{
+		return $this->pos1;
+	}
+ 
+	public function getPos2() : Vector3{
+		return $this->pos2;
+	}
+	
+	public function getPos1AsArray() : array{
 		return array($this->pos1->getX(),$this->pos1->getY(),$this->pos1->getZ());
 	}
  
-	public function getPos2() : array{
+	public function getPos2AsArray() : array{
 		return array($this->pos2->getX(),$this->pos2->getY(),$this->pos2->getZ());
 	}
 	
+	public function getBlocks() : array{
+		$blocks = [];
+
+		for($x = min($this->getPos1()->getX(), $this->getPos2()->getX()); $x <= max($this->getPos1()->getX(), $this->getPos2()->getX()); $x++){
+			for($y = min($this->getPos1()->getY(), $this->getPos2()->getY()); $y <= max($this->getPos1()->getY(), $this->getPos2()->getY()); $y++){
+				for($z = min($this->getPos1()->getZ(), $this->getPos2()->getZ()); $z <= max($this->getPos1()->getZ(), $this->getPos2()->getZ()); $z++){
+					$pos = new Vector3($x, $y, $z);
+					$block = $this->shipyard->getServer()->getLevelByName($this->level)->getBlock($pos);
+					array_push($blocks, $block);
+				}
+			}
+		}
+		return $blocks;
+	}
+	
 	public function getWorld() : string{
-		return $this->world;
+		return $this->level;
 	}
 	
 	public function create() : void{
