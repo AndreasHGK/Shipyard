@@ -19,6 +19,7 @@ class Ship{
 	public $pos2;
 	public $level;
 	public $blocks = [];
+	public $class;
 	
 	public function __construct(Shipyard $plugin, string $name, Player $owner, Vector3 $pos1, Vector3 $pos2, string $level){
 		$this->shipyard = $plugin;
@@ -55,15 +56,6 @@ class Ship{
 		return array($this->pos2->getX(),$this->pos2->getY(),$this->pos2->getZ());
 	}
 	
-	public function getSize() : int{
-		#will be used for ship classes in the future
-		$length = abs($this->pos1->getX() - $this->pos2->getX());
-		$height = abs($this->pos1->getY() - $this->pos2->getY());
-		$width = abs($this->pos1->getZ() - $this->pos2->getZ());
-		$size = $length*$height*$width;
-		return $size;
-	}
-	
 	public function getBlocks() : array{
 		$blocks = [];
 
@@ -77,6 +69,43 @@ class Ship{
 			}
 		}
 		return $blocks;
+	}
+	
+	public function getSize() : int{
+		return count($this->getBlocks());
+	}
+	
+	public function getClass() : string{
+		switch(true){
+			case $this->getSize() <= 20:
+			return "drone";
+			break;
+			
+			case $this->getSize() <= 250:
+			return "fighter";
+			break;
+			
+			case $this->getSize() <= 500:
+			return "bomber";
+			break;
+			
+			case $this->getSize() <= 10000:
+			return "corvette";
+			break;
+			
+			case $this->getSize() <= 50000:
+			return "frigate";
+			break;
+			
+			case $this->getSize() <= 250000:
+			return "cruiser";
+			break;
+			
+			#more than 250K
+			default:
+			return "capital";
+			break;
+		}
 	}
 	
 	public function getBlocks3D() : array{

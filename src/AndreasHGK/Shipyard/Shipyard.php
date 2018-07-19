@@ -45,8 +45,8 @@ class Shipyard extends PluginBase implements Listener{
 		$this->getLogger()->info(C::GREEN."enabled Shipyard v".$this->version);
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 		@mkdir($this->getDataFolder());
-		$this->saveResource("ships.yml"); 
-		$this->db = new Config($this->getDataFolder() . "ships.yml", Config::YAML);
+		$this->saveResource("ships.json"); 
+		$this->db = new Config($this->getDataFolder() . "ships.json", Config::JSON);
 		$this->loadShips();
 	}
 
@@ -181,7 +181,7 @@ class Shipyard extends PluginBase implements Listener{
 					case "info":
 					#request a new pos1
 					if($this->shipExists($args[1])){
-						$sender->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD.$this->getShip($args[1])->getName().C::RESET.C::DARK_GRAY." =----".C::GOLD."\n/Owner".C::GRAY." : ".$this->getShip($args[1])->getOwner()."\n/Size".C::GRAY." : ".$this->getShip($args[1])->getSize()."\n/World".C::GRAY." : ".$this->getShip($args[1])->getWorld().C::GOLD."\n/Pos1".C::	GRAY." : ".$this->getShip($args[1])->getPos1().C::GOLD."\n/Pos2".C::GRAY." : ".$this->getShip($args[1])->getPos2());
+						$sender->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD.$this->getShip($args[1])->getName().C::RESET.C::DARK_GRAY." =----".C::GOLD."\nOwner".C::GRAY." : ".$this->getShip($args[1])->getOwner().C::GOLD."\nClass".C::GRAY." : ".$this->getShip($args[1])->getClass().C::GOLD."\nSize".C::GRAY." : ".$this->getShip($args[1])->getSize().C::GOLD."\nWorld".C::GRAY." : ".$this->getShip($args[1])->getWorld().C::GOLD."\nPos1".C::	GRAY." : ".$this->getShip($args[1])->getPos1().C::GOLD."\nPos2".C::GRAY." : ".$this->getShip($args[1])->getPos2());
 						return true;
 					}else{
 						$sender->sendMessage(C::GREEN."That ship doesn't exist");
@@ -204,15 +204,22 @@ class Shipyard extends PluginBase implements Listener{
 		}
 	}
 	
+	# CURRENTLY DISABLED - WORK IN PROGRESS
 	public function loadShips() : void{
-		$this->ships = $this->getConfig()->get("ships");
+		#create ships from the data found in the config
+		/* foreach($this->getConfig()->get("ships") as $ship){
+			$this->createShip($ship["name"], $ship["owner"], $ship["pos1"], $ship["pos2"], $ship["level"]);
+		} */
 	}
 	
+	# CURRENTLY DISABLED - WORK IN PROGRESS
 	public function saveShips() : void{
-		foreach($this->ships as $ship){
-			$data["ships"][$ship->getName()] = $ship;
+		#puts the ships and their data into a config file
+		/* foreach($this->ships as $ship){
+			$array = ["name" => $ship->getName(), "owner" => $ship->getOwner(), "pos1" => $ship->getPos1(), "pos2" => $ship->getPos2(), "level" => $ship->getWorld()];
+			$data[$ship->getName()] = $array;
 		}
-		$this->db->set("ships", $data); 
+		$this->db->set("ships.json", $data);  */
 	}
 	
 	public function onInteract(PlayerInteractEvent $event) : void{
