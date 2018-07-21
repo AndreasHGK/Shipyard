@@ -45,22 +45,15 @@ class Shipyard extends PluginBase implements Listener{
 	public $factions;
 	
 	public function onEnable() : void{
-		if($this->isPluginLoaded($this->getServer(), "FactionsPro")){
-			$this->factions = $this->getServer()->getPluginManager()->getPlugin("FactionsPro");
-		}else{
-			$this->getLogger()->info(C::RED."This plugin version requires FactionsPro to work!");
-			#$this->getServer()->getPluginManager()->disablePlugin($this); 
-		}
+		
+		#this is for later on for the factions support.
+		$this->factions = $this->getServer()->getPluginManager()->getPlugin("FactionsPro");
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 /* 		@mkdir($this->getDataFolder());
 		$this->saveResource("ships.json"); 
 		$this->db = new Config($this->getDataFolder() . "ships.json", Config::JSON);
 		$this->loadShips(); */
 		$this->getLogger()->info(C::GREEN."enabled Shipyard v".$this->version);
-	}
-	
-	public function isPluginLoaded(Server $server, string $pluginName){
-		return ($plugin = $server->getPluginManager()->getPlugin($pluginName)) !== null and $plugin->isEnabled();
 	}
 
 	public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool{
@@ -98,9 +91,19 @@ class Shipyard extends PluginBase implements Listener{
 						if(isset($this->pos1[$name]) && isset($this->pos2[$name])){
 							if(!$this->shipExists($args[1])){
 								$this->createShip(strtolower($args[1]), $name, $this->pos1[$name], $this->pos2[$name], $sender->getLevel()->getName());
-								$sender->sendMessage(C::GREEN."Ship '".strtolower($args[1])."' created.");
-								$this->saveShips();
-								return true;
+								if($this->shipCreationChecks($args[1]) == 1){
+									$sender->sendMessage(C::GREEN."Ship '".strtolower($args[1])."' created.");
+									$this->saveShips();
+									return true;
+								}elseif($this->shipCreationChecks($args[1]) == 0){
+									$sender->sendMessage(C::RED."Your ship doesn't have a ship core.");
+									$this->getShip($args[1])->remove();
+									return true;
+								}else{
+									$sender->sendMessage(C::RED."Your ship can't have more than 1 cores.");
+									$this->getShip($args[1])->remove();
+									return true;
+								}
 							}else{
 								$sender->sendMessage(C::RED."That ship already exists!");
 								return true;
@@ -287,6 +290,17 @@ class Shipyard extends PluginBase implements Listener{
 	
 	public function shipExists(string $name) : bool{
 		return isset($this->ships[$name]);
+	}
+	
+	public function shipCreationChecks(string $ship) : int{
+		$cores = $this->getShip($ship)->countCores();
+		if($cores == 1){
+			return 1;
+		}elseif($cores == 0){
+			return 0;
+		}else{
+			return 2;
+		}
 	}
 	
 	public function createShip(string $name, string $owner, Vector3 $pos1, Vector3 $pos2, string $world) : void{

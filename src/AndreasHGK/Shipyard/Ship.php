@@ -34,6 +34,10 @@ class Ship{
 	}
 	
 	#API stuff
+	public function setOwner(string $name) : void{
+		$this->owner = $name;
+	}
+	
 	public function getName() : string{
 		return $this->name;
 	}
@@ -73,6 +77,17 @@ class Ship{
 			}
 		}
 		return $blocks;
+	}
+	
+	public function countCores() : int{
+		$blocks = $this->getBlocks();
+		$cores = 0;
+		foreach($blocks as $block){
+			if($block->getId() == 49){
+				$cores++;
+			}
+		}
+		return $cores;
 	}
 	
 	public function getSize() : int{
