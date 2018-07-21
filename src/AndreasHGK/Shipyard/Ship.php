@@ -15,13 +15,14 @@ class Ship{
 	private $shipyard;
 	public $name;
 	public $owner;
+	#public $faction;
 	public $pos1;
 	public $pos2;
 	public $level;
 	public $blocks = [];
 	public $class;
 	
-	public function __construct(Shipyard $plugin, string $name, Player $owner, Vector3 $pos1, Vector3 $pos2, string $level){
+	public function __construct(Shipyard $plugin, string $name, string $owner, Vector3 $pos1, Vector3 $pos2, string $level){
 		$this->shipyard = $plugin;
 		$this->name = strtolower($name);
 		$this->owner = $owner;
@@ -29,6 +30,7 @@ class Ship{
 		$this->pos2 = $pos2;
 		$this->level = $level;
 		$this->create();
+		$this->class = $this->getClass();
 	}
 	
 	#API stuff
@@ -36,7 +38,7 @@ class Ship{
 		return $this->name;
 	}
 	
-	public function getOwner() : Player{
+	public function getOwner() : string{
 		return $this->owner;
 	}
 
@@ -62,9 +64,11 @@ class Ship{
 		for($x = min($this->getPos1()->getX(), $this->getPos2()->getX()); $x <= max($this->getPos1()->getX(), $this->getPos2()->getX()); $x++){
 			for($y = min($this->getPos1()->getY(), $this->getPos2()->getY()); $y <= max($this->getPos1()->getY(), $this->getPos2()->getY()); $y++){
 				for($z = min($this->getPos1()->getZ(), $this->getPos2()->getZ()); $z <= max($this->getPos1()->getZ(), $this->getPos2()->getZ()); $z++){
-					$pos = new Vector3($x, $y, $z);
-					$block = $this->shipyard->getServer()->getLevelByName($this->level)->getBlock($pos);
-					array_push($blocks, $block);
+						$pos = new Vector3($x, $y, $z);
+						$block = $this->shipyard->getServer()->getLevelByName($this->level)->getBlock($pos);
+					if($block->getId() != 0){	
+						array_push($blocks, $block);
+					}
 				}
 			}
 		}

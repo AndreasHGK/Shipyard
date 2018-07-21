@@ -29,6 +29,8 @@ use pocketmine\scheduler\TaskHandler;
 use pocketmine\scheduler\TaskScheduler;
 use pocketmine\utils\TextFormat as C;
 
+use FactionsPro\FactionMain;
+
 class Shipyard extends PluginBase implements Listener{
 	
 	public $version = "1.0.0-ALPHA";
@@ -40,14 +42,25 @@ class Shipyard extends PluginBase implements Listener{
 	public $pos2 = [];
 	public $request = [];
 	public $db;
+	public $factions;
 	
 	public function onEnable() : void{
-		$this->getLogger()->info(C::GREEN."enabled Shipyard v".$this->version);
+		if($this->isPluginLoaded($this->getServer(), "FactionsPro")){
+			$this->factions = $this->getServer()->getPluginManager()->getPlugin("FactionsPro");
+		}else{
+			$this->getLogger()->info(C::RED."This plugin version requires FactionsPro to work!");
+			#$this->getServer()->getPluginManager()->disablePlugin($this); 
+		}
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
-		@mkdir($this->getDataFolder());
+/* 		@mkdir($this->getDataFolder());
 		$this->saveResource("ships.json"); 
 		$this->db = new Config($this->getDataFolder() . "ships.json", Config::JSON);
-		$this->loadShips();
+		$this->loadShips(); */
+		$this->getLogger()->info(C::GREEN."enabled Shipyard v".$this->version);
+	}
+	
+	public function isPluginLoaded(Server $server, string $pluginName){
+		return ($plugin = $server->getPluginManager()->getPlugin($pluginName)) !== null and $plugin->isEnabled();
 	}
 
 	public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool{
@@ -84,7 +97,7 @@ class Shipyard extends PluginBase implements Listener{
 					if(!empty($args[1])){
 						if(isset($this->pos1[$name]) && isset($this->pos2[$name])){
 							if(!$this->shipExists($args[1])){
-								$this->createShip(strtolower($args[1]), $sender, $this->pos1[$name], $this->pos2[$name], $sender->getLevel()->getName());
+								$this->createShip(strtolower($args[1]), $name, $this->pos1[$name], $this->pos2[$name], $sender->getLevel()->getName());
 								$sender->sendMessage(C::GREEN."Ship '".strtolower($args[1])."' created.");
 								$this->saveShips();
 								return true;
@@ -106,10 +119,12 @@ class Shipyard extends PluginBase implements Listener{
 					case "remove":
 					$ship = $args[1];
 					if($this->shipExists($ship)){
-						$this->getShip($ship)->remove();
-						$sender->sendMessage(C::GREEN."Ship succesfully removed!");
-						$this->saveShips();
+						if($this->getShip($ship)->getOwner() == $name || $sender->IsOp()){
+							$this->getShip($ship)->remove();
+							$sender->sendMessage(C::GREEN."Ship succesfully removed!");
+							$this->saveShips();
 						return true;
+						}
 					}else{
 						$sender->sendMessage(C::RED."That ship doesn't exist!");
 						return true;
@@ -118,7 +133,7 @@ class Shipyard extends PluginBase implements Listener{
 					break;
 					
 					case "list":
-					$ownedShips = $this->ownedShips($sender);
+					$ownedShips = $this->ownedShips($name);
 					if($ownedShips != []){
 						$sender->sendMessage(C::YELLOW."Ships you own:");
 						foreach($ownedShips as $ship){
@@ -158,7 +173,7 @@ class Shipyard extends PluginBase implements Listener{
 						return true;
 					}
 					if($this->shipExists($args[1])){
-						if($this->getShip($args[1])->getOwner() == $sender){
+						if($this->getShip($args[1])->getOwner() == $name){
 							if(in_array($args[1], $this->control)){
 								$sender->sendMessage(C::RED."Someone is already controlling this ship!");
 								return true;
@@ -181,7 +196,7 @@ class Shipyard extends PluginBase implements Listener{
 					case "info":
 					#request a new pos1
 					if($this->shipExists($args[1])){
-						$sender->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD.$this->getShip($args[1])->getName().C::RESET.C::DARK_GRAY." =----".C::GOLD."\nOwner".C::GRAY." : ".$this->getShip($args[1])->getOwner().C::GOLD."\nClass".C::GRAY." : ".$this->getShip($args[1])->getClass().C::GOLD."\nSize".C::GRAY." : ".$this->getShip($args[1])->getSize().C::GOLD."\nWorld".C::GRAY." : ".$this->getShip($args[1])->getWorld().C::GOLD."\nPos1".C::	GRAY." : ".$this->getShip($args[1])->getPos1().C::GOLD."\nPos2".C::GRAY." : ".$this->getShip($args[1])->getPos2());
+						$sender->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD.$this->getShip($args[1])->getName().C::RESET.C::DARK_GRAY." =----".C::GOLD."\nOwner".C::GRAY." : ".$this->getShip($args[1])->getOwner().C::GOLD."\nClass".C::GRAY." : ".$this->getShip($args[1])->class.C::GOLD."\nSize".C::GRAY." : ".$this->getShip($args[1])->getSize().C::GOLD."\nWorld".C::GRAY." : ".$this->getShip($args[1])->getWorld().C::GOLD."\nPos1".C::	GRAY." : ".$this->getShip($args[1])->getPos1().C::GOLD."\nPos2".C::GRAY." : ".$this->getShip($args[1])->getPos2());
 						return true;
 					}else{
 						$sender->sendMessage(C::GREEN."That ship doesn't exist");
@@ -205,22 +220,10 @@ class Shipyard extends PluginBase implements Listener{
 	}
 	
 	# CURRENTLY DISABLED - WORK IN PROGRESS
-	public function loadShips() : void{
-		#create ships from the data found in the config
-		/* foreach($this->getConfig()->get("ships") as $ship){
-			$this->createShip($ship["name"], $ship["owner"], $ship["pos1"], $ship["pos2"], $ship["level"]);
-		} */
-	}
+	public function loadShips() : void{}
 	
 	# CURRENTLY DISABLED - WORK IN PROGRESS
-	public function saveShips() : void{
-		#puts the ships and their data into a config file
-		/* foreach($this->ships as $ship){
-			$array = ["name" => $ship->getName(), "owner" => $ship->getOwner(), "pos1" => $ship->getPos1(), "pos2" => $ship->getPos2(), "level" => $ship->getWorld()];
-			$data[$ship->getName()] = $array;
-		}
-		$this->db->set("ships.json", $data);  */
-	}
+	public function saveShips() : void{}
 	
 	public function onInteract(PlayerInteractEvent $event) : void{
 		$player = $event->getPlayer();
@@ -242,7 +245,7 @@ class Shipyard extends PluginBase implements Listener{
 		}
 	}
 	
-	public function ownedShips(Player $player) : array{
+	public function ownedShips(string $player) : array{
 		#list the ships this player owns
 		$ownedships = [];
 			foreach($this->ships as $ship){
@@ -286,7 +289,7 @@ class Shipyard extends PluginBase implements Listener{
 		return isset($this->ships[$name]);
 	}
 	
-	public function createShip(string $name, Player $owner, Vector3 $pos1, Vector3 $pos2, string $world) : void{
+	public function createShip(string $name, string $owner, Vector3 $pos1, Vector3 $pos2, string $world) : void{
 		#make a new ship
 		new Ship($this, $name, $owner, $pos1, $pos2, $world);
 	}
@@ -348,8 +351,7 @@ class Shipyard extends PluginBase implements Listener{
 			break;
 			
 			default:
-			#error code 01
-			$player->sendMessage(C::RED."A movement error has occured! -01");
+			$player->sendMessage(C::RED."A movement error has occured!");
 			break;
 		}
 		
