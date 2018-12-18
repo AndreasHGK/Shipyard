@@ -5,6 +5,8 @@ api: 3.0.0
 load: POSTWORLD
 author: AndreasHGK
 description: Build and fly ships. Battle others
+softdepend: FactionsPro
+
 commands:
  shipyard:
   description: "main Shipyard command"

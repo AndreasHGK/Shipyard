@@ -8,11 +8,11 @@ use AndreasHGK\Shipyard\Shipyard;
 use pocketmine\scheduler\Task;
 
 class ControllerCooldown extends Task{
-	
-	public $plugin;
+
+    public $plugin;
     public $ticks = 0;
-	public $player;
-	
+    public $player;
+
 
     public function __construct(Shipyard $plugin) {
         $this->plugin = $plugin;

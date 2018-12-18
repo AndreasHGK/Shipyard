@@ -53,7 +53,6 @@ class Shipyard extends PluginBase implements Listener{
 		$this->saveResource("ships.json"); 
 		$this->db = new Config($this->getDataFolder() . "ships.json", Config::JSON);
 		$this->loadShips(); */
-		$this->getLogger()->info(C::GREEN."enabled Shipyard v".$this->version);
 	}
 
 	public function onCommand(CommandSender $sender, Command $command, string $label, array $args) : bool{
@@ -435,7 +434,6 @@ class Shipyard extends PluginBase implements Listener{
 	}
 	
 	public function onDisable() : void{
-		$this->getLogger()->info(C::RED."disabled Shipyard v".$this->version);
 		$this->saveShips();
 	}
 }
