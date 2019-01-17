@@ -6,7 +6,9 @@ namespace AndreasHGK\Shipyard;
 
 use AndreasHGK\Shipyard\ControllerCooldown;
 use AndreasHGK\Shipyard\Ship;
+use AndreasHGK\Shipyard\ShipMoveTask;
 
+use pocketmine\level\Position;
 use pocketmine\Server;
 use pocketmine\Player;
 use pocketmine\plugin\PluginBase;
@@ -24,16 +26,14 @@ use pocketmine\event\player\PlayerInteractEvent;
 use pocketmine\event\block\BlockBreakEvent;
 use pocketmine\event\Listener;
 use pocketmine\block\Block;
-use pocketmine\scheduler\Task;
+use pocketmine\entity\Entity;
 use pocketmine\scheduler\TaskHandler;
 use pocketmine\scheduler\TaskScheduler;
 use pocketmine\utils\TextFormat as C;
 
-use FactionsPro\FactionMain;
-
 class Shipyard extends PluginBase implements Listener{
-	
-	public $version = "1.0.0-ALPHA";
+
+	CONST VERSION = "1.0.0-ALPHA";
 	public $id = 280;
 	public $ships = [];
 	public $control = [];
@@ -42,12 +42,13 @@ class Shipyard extends PluginBase implements Listener{
 	public $pos2 = [];
 	public $request = [];
 	public $db;
-	public $factions;
-	
+	public $movetasks = [];
+	public $waterlevel = 63;
+
+	public $requirewater = false;
+
 	public function onEnable() : void{
-		
-		#this is for later on for the factions support.
-		$this->factions = $this->getServer()->getPluginManager()->getPlugin("FactionsPro");
+
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 /* 		@mkdir($this->getDataFolder());
 		$this->saveResource("ships.json"); 
@@ -89,12 +90,16 @@ class Shipyard extends PluginBase implements Listener{
 					if(!empty($args[1])){
 						if(isset($this->pos1[$name]) && isset($this->pos2[$name])){
 							if(!$this->shipExists($args[1])){
-								$this->createShip(strtolower($args[1]), $name, $this->pos1[$name], $this->pos2[$name], $sender->getLevel()->getName());
-								if($this->shipCreationChecks($args[1]) == 1){
-									$sender->sendMessage(C::GREEN."Ship '".strtolower($args[1])."' created.");
-									$this->saveShips();
-									return true;
-								}elseif($this->shipCreationChecks($args[1]) == 0){
+								$this->createShip(strtolower($args[1]), $name, $this->pos1[$name], $this->pos2[$name], $sender->getLevel()->getName(), $this->getFacing($sender, true));
+                                if(min($this->getShip($args[1])->getPos1()->getY(), $this->getShip($args[1])->getPos2()->getY()) > $this->waterlevel || $this->requirewater == false){
+                                    $sender->sendMessage(C::RED."Your ship needs to be in the water");
+                                    $this->getShip($args[1])->remove();
+                                    return true;
+                                } elseif($this->shipCreationChecks($args[1]) == 1){
+                                    $sender->sendMessage(C::GREEN."Ship '".strtolower($args[1])."' created.");
+                                    $this->saveShips();
+                                    return true;
+                                }elseif($this->shipCreationChecks($args[1]) == 0){
 									$sender->sendMessage(C::RED."Your ship doesn't have a ship core.");
 									$this->getShip($args[1])->remove();
 									return true;
@@ -115,7 +120,6 @@ class Shipyard extends PluginBase implements Listener{
 						$sender->sendMessage(C::RED."Please specify a name for your new ship");
 						return true;
 					}
-					return true;
 					break;
 					
 					case "remove":
@@ -192,7 +196,6 @@ class Shipyard extends PluginBase implements Listener{
 						$sender->sendMessage(C::RED."That ship doesn't exist.");
 						return true;
 					}
-					return true;
 					break;
 					
 					case "info":
@@ -204,7 +207,6 @@ class Shipyard extends PluginBase implements Listener{
 						$sender->sendMessage(C::GREEN."That ship doesn't exist");
 						return true;
 					}
-					return true;
 					break;
 					
 					default:
@@ -212,8 +214,6 @@ class Shipyard extends PluginBase implements Listener{
 					return true;
 					break;
 				}
-				
-				return true;
 				break;
 				
 			default:
@@ -221,12 +221,12 @@ class Shipyard extends PluginBase implements Listener{
 		}
 	}
 	
-	# CURRENTLY DISABLED - WORK IN PROGRESS
+	# WORK IN PROGRESS
 	public function loadShips() : void{}
 	
-	# CURRENTLY DISABLED - WORK IN PROGRESS
+	# WORK IN PROGRESS
 	public function saveShips() : void{}
-	
+
 	public function onInteract(PlayerInteractEvent $event) : void{
 		$player = $event->getPlayer();
 		$name = $player->getName();
@@ -241,12 +241,13 @@ class Shipyard extends PluginBase implements Listener{
 				$player->sendMessage(C::RED."Direction: ".$this->getFacing($player));
 				$this->setControllerCooldown($player);
 				if(isset($this->control[$name])){
-					$this->moveShip($player, $this->control[$name], $this->getShip($this->control[$name])->getWorld(), $this->getFacing($player), 5);
+				    $ship = $this->control[$name];
+                    $this->moveShip($player, $this->control[$name], $this->getShip($this->control[$name])->getWorld(), $this->getFacing($player), 5);
 				}
 			}
 		}
 	}
-	
+
 	public function ownedShips(string $player) : array{
 		#list the ships this player owns
 		$ownedships = [];
@@ -257,7 +258,7 @@ class Shipyard extends PluginBase implements Listener{
 		}
 		return $ownedships;
 	}
-	
+
 	public function blockBreak(BlockBreakEvent $event) : void{
 		
 		#get block position
@@ -282,15 +283,19 @@ class Shipyard extends PluginBase implements Listener{
 			unset($this->request[$name]);
 		}
 	}
-	
+
 	public function getShip(string $name) : Ship{
 		return $this->ships[$name];
 	}
-	
+
 	public function shipExists(string $name) : bool{
 		return isset($this->ships[$name]);
 	}
-	
+
+	public function getInstance(){
+	    return $this;
+    }
+
 	public function shipCreationChecks(string $ship) : int{
 		$cores = $this->getShip($ship)->countCores();
 		if($cores == 1){
@@ -301,101 +306,227 @@ class Shipyard extends PluginBase implements Listener{
 			return 2;
 		}
 	}
-	
-	public function createShip(string $name, string $owner, Vector3 $pos1, Vector3 $pos2, string $world) : void{
+
+	public function createShip(string $name, string $owner, Vector3 $pos1, Vector3 $pos2, string $world, string $forward) : void{
 		#make a new ship
-		new Ship($this, $name, $owner, $pos1, $pos2, $world);
+		new Ship($this, $name, $owner, $pos1, $pos2, $world, $forward);
 	}
-	
-	public function moveShip(Player $player, string $ship, string $world, string $direction, int $speed) : void{
-		#move the ship
-		#get initial variables
-		$world = $this->getServer()->getLevelByName($world);
-		$blocks = $this->getShip($ship)->getBlocks();
-		$x = $this->getShip($ship)->getPos1()->getX();
-		$y = $this->getShip($ship)->getPos1()->getY();
-		$z = $this->getShip($ship)->getPos1()->getZ();
-		$x1 = $this->getShip($ship)->getPos2()->getX();
-		$y1 = $this->getShip($ship)->getPos2()->getY();
-		$z1 = $this->getShip($ship)->getPos2()->getZ();
-		
-		switch($direction){
-			#deterimine in which direction to move the ship
-			case "Up":
-			$move = new Vector3(0, $speed, 0);
-			$this->getShip($ship)->pos1 = new Vector3($x, $y+$speed, $z);
-			$this->getShip($ship)->pos2 = new Vector3($x1, $y1+$speed, $z1);
-			$player->teleport(new Vector3($player->getX(), $player->getY()+$speed, $player->getZ()));
-			break;
-			
-			case "Down":
-			$move = new Vector3(0, -$speed, 0);
-			$this->getShip($ship)->pos1 = new Vector3($x, $y-$speed, $z);
-			$this->getShip($ship)->pos2 = new Vector3($x1, $y1-$speed, $z1);
-			$player->teleport(new Vector3($player->getX(), $player->getY()-$speed, $player->getZ()));
-			break;
-			
-			case "West":
-			$move = new Vector3($speed, 0, 0);
-			$this->getShip($ship)->pos1 = new Vector3($x+$speed, $y, $z);
-			$this->getShip($ship)->pos2 = new Vector3($x1+$speed, $y1, $z1);
-			$player->teleport(new Vector3($player->getX()+$speed, $player->getY(), $player->getZ()));
-			break;
-			
-			case "East":
-			$move = new Vector3(-$speed, 0, 0);
-			$this->getShip($ship)->pos1 = new Vector3($x-$speed, $y, $z);
-			$this->getShip($ship)->pos2 = new Vector3($x1-$speed, $y1, $z1);
-			$player->teleport(new Vector3($player->getX()-$speed, $player->getY(), $player->getZ()));
-			break;
-			
-			case "North":
-			$move = new Vector3(0, 0, $speed);
-			$this->getShip($ship)->pos1 = new Vector3($x, $y, $z+$speed);
-			$this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1+$speed);
-			$player->teleport(new Vector3($player->getX(), $player->getY(), $player->getZ()+$speed));
-			break;
-			
-			case "South":
-			$move = new Vector3(0, 0, -$speed);
-			$this->getShip($ship)->pos1 = new Vector3($x, $y, $z-$speed);
-			$this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1-$speed);
-			$player->teleport(new Vector3($player->getX(), $player->getY(), $player->getZ()-$speed));
-			break;
-			
-			default:
-			$player->sendMessage(C::RED."A movement error has occured!");
-			break;
-		}
-		
-		#make everything air and then place the blocks 5 blocks further
-		foreach($blocks as $block){
-			$world->setBlock($block, Block::get(0));
-		}
-		foreach($blocks as $block){
-			$loc = $block->asVector3();
-			$world->setBlock(new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ()), $block);
-		}
-		$this->saveShips();
-	}
-	
-	public function getFacing(Player $player) : string{
+
+    public function moveShip(Player $player, string $ship, string $worldstring, string $direction, int $speed) : void{
+        #move the ship
+        #get initial variables
+        $world = $this->getServer()->getLevelByName($worldstring);
+        $blocks = $this->getShip($ship)->getBlocks(false);
+        $x = $this->getShip($ship)->getPos1()->getX();
+        $y = $this->getShip($ship)->getPos1()->getY();
+        $z = $this->getShip($ship)->getPos1()->getZ();
+        $x1 = $this->getShip($ship)->getPos2()->getX();
+        $y1 = $this->getShip($ship)->getPos2()->getY();
+        $z1 = $this->getShip($ship)->getPos2()->getZ();
+
+        switch($direction){
+            #deterimine in which direction to move the ship
+            case "Up":
+                $move = new Vector3(0, $speed, 0);
+                foreach($blocks as $block){
+                    $loc = $block->asVector3();
+                    $target = new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ());
+                    if($world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::WATER and $world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::AIR and !in_array($world->getBlock($target), $blocks)){
+                        $player->sendMessage(C::colorize("§7That area appears to be §cobstructed§7!"));
+                        return;
+                    }
+                }
+                $this->getShip($ship)->pos1 = new Vector3($x, $y+$speed, $z);
+                $this->getShip($ship)->pos2 = new Vector3($x1, $y1+$speed, $z1);
+                break;
+
+            case "Down":
+                $move = new Vector3(0, -$speed, 0);
+                foreach($blocks as $block){
+                    $loc = $block->asVector3();
+                    $target = new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ());
+                    if($world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::WATER and $world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::AIR and !in_array($world->getBlock($target), $blocks)){
+                        $player->sendMessage(C::colorize("§7That area appears to be §cobstructed§7!"));
+                        return;
+                    }
+                }
+                $this->getShip($ship)->pos1 = new Vector3($x, $y-$speed, $z);
+                $this->getShip($ship)->pos2 = new Vector3($x1, $y1-$speed, $z1);
+                break;
+
+            case "West":
+                $move = new Vector3($speed, 0, 0);
+                foreach($blocks as $block){
+                    $loc = $block->asVector3();
+                    $target = new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ());
+                    if($world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::WATER and $world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::AIR and !in_array($world->getBlock($target), $blocks)){
+                        $player->sendMessage(C::colorize("§7That area appears to be §cobstructed§7!"));
+                        return;
+                    }
+                }
+                $this->getShip($ship)->pos1 = new Vector3($x+$speed, $y, $z);
+                $this->getShip($ship)->pos2 = new Vector3($x1+$speed, $y1, $z1);
+                break;
+
+            case "East":
+                $move = new Vector3(-$speed, 0, 0);
+                foreach($blocks as $block){
+                    $loc = $block->asVector3();
+                    $target = new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ());
+                    if($world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::WATER and $world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::AIR and !in_array($world->getBlock($target), $blocks)){
+                        $player->sendMessage(C::colorize("§7That area appears to be §cobstructed§7!"));
+                        return;
+                    }
+                }
+                $this->getShip($ship)->pos1 = new Vector3($x-$speed, $y, $z);
+                $this->getShip($ship)->pos2 = new Vector3($x1-$speed, $y1, $z1);
+                break;
+
+            case "North":
+                $move = new Vector3(0, 0, $speed);
+                foreach($blocks as $block){
+                    $loc = $block->asVector3();
+                    $target = new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ());
+                    if($world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::WATER and $world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::AIR and !in_array($world->getBlock($target), $blocks)){
+                        $player->sendMessage(C::colorize("§7That area appears to be §cobstructed§7!"));
+                        return;
+                    }
+                }
+                $this->getShip($ship)->pos1 = new Vector3($x, $y, $z+$speed);
+                $this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1+$speed);
+                break;
+
+            case "South":
+                $move = new Vector3(0, 0, -$speed);
+                foreach($blocks as $block){
+                    $loc = $block->asVector3();
+                    $target = new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ());
+                    if($world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::WATER and $world->getBlockIdAt($target->getX(), $target->getY(), $target->getZ()) != Block::AIR and !in_array($world->getBlock($target), $blocks)){
+                        $player->sendMessage(C::colorize("§7That area appears to be §cobstructed§7!"));
+                        return;
+                    }
+                }
+                $this->getShip($ship)->pos1 = new Vector3($x, $y, $z-$speed);
+                $this->getShip($ship)->pos2 = new Vector3($x1, $y1, $z1-$speed);
+                break;
+
+            default:
+                $player->sendMessage(C::RED."A movement error has occured!");
+                break;
+        }
+
+        #make everything air and then place the blocks 5 blocks further
+        foreach($blocks as $block){
+            if($block->y > $this->waterlevel){
+                $world->setBlock($block, Block::get(0));
+            }else{
+                $world->setBlock($block, Block::get(Block::WATER));
+            }
+
+        }
+        foreach($blocks as $block){
+            $loc = $block->asVector3();
+            $world->setBlock(new Vector3($loc->getX()+$move->getX(), $loc->getY()+$move->getY(), $loc->getZ()+$move->getZ()), $block);
+        }
+        $entities = $world->getEntities();
+        foreach ($entities as $entity) {
+            $xe = $entity->getLocation()->getX();
+            $ye = $entity->getLocation()->getY();
+            $ze = $entity->getLocation()->getZ();
+            if ($xe >= min($x, $x1)-2 && $xe <= max($x, $x1)+2 && $ye >= min($y, $y1)-2 && $ye <= max($y, $y1)+2 && $ze >= min($z, $z1)-2 && $ze <= max($z, $z1)+2) {
+                $pos = new Position($xe+$move->getX(), $ye+$move->getY(), $ze+$move->getZ());
+                $entity->teleport($pos, $entity->getYaw(), $entity->getPitch());
+            }
+        }
+
+        $this->saveShips();
+    }
+
+    public function turn($dir): void
+    {
+
+    }
+
+    public function compareDirection(string $dir1, string $dir2): int
+    {
+        switch ($dir1) {
+            case "West":
+                $dir1s = 4;
+                break;
+
+            case "East":
+                $dir1s = 2;
+                break;
+
+            case "North":
+                $dir1s = 1;
+                break;
+
+            case "South":
+                $dir1s = 3;
+                break;
+        }
+        switch ($dir2) {
+            case "West":
+                $dir2s = 4;
+                break;
+
+            case "East":
+                $dir2s = 2;
+                break;
+
+            case "North":
+                $dir2s = 1;
+                break;
+
+            case "South":
+                $dir2s = 3;
+                break;
+        }
+        $result = $dir1s - $dir2s; //0: forward, 1: right, 2: backward, 3: left
+        switch ($result) {
+            case -3:
+                return 3;
+                break;
+            case -2:
+                return 2;
+                break;
+            case -1:
+                return 1;
+                break;
+            case 0:
+                return 0;
+                break;
+            case 1:
+                return 3;
+                break;
+            case 2:
+                return 2;
+                break;
+            case 3:
+                return 1;
+                break;
+        }
+        return 0;
+    }
+
+	public function getFacing(Player $player, $exclude = false) : string{
 		
 		#calculate what direction a player is looking. (North, East, South, West, Up, Down)
 		$x = $player->getDirectionVector()->x;
 		$y = $player->getDirectionVector()->y; 
 		$z = $player->getDirectionVector()->z;
 		
-		if($y >= 0.850) return "Up";
-		if($y <= -0.85) return "Down";
+		if($y >= 0.850 && $exclude == false) return "Up";
+		if($y <= -0.85 && $exclude == false) return "Down";
 		
 		if($x >= 0.50) return "West";
 		if($x <= -0.5) return "East";
 		if($z >= 0.50) return "North";
 		if($z <= -0.5) return "South";
-		return null;
+		return "Up";
 	}
-	
+
 	public function setControllerCooldown(Player $player) : void{
 		
 		#set a cooldown for a player
@@ -404,7 +535,7 @@ class Shipyard extends PluginBase implements Listener{
 		$task->setHandler($handler);
 		$this->cooldown[$task->getTaskId()] = $player;
 	}
-	
+
 	public function removeTask($id) : void{
 		
 		#remove the cooldown
@@ -417,13 +548,13 @@ class Shipyard extends PluginBase implements Listener{
 		#send a help message
 		$player->sendMessage(C::DARK_GRAY."----= ".C::YELLOW.C::BOLD."SHIPYARD ".C::RESET.C::GRAY."v".$this->version.C::RESET.C::DARK_GRAY." =----".C::GOLD."\n/shipyard help".C::	GRAY." - view this message".C::GOLD."\n/shipyard get".C::GRAY." - get a ship controller".C::GOLD."\n/shipyard create".C::GRAY." - make a new ship".C::GOLD."\n/shipyard remove".C::GRAY." - remove a ship".C::GOLD."\n/shipyard list".C::GRAY." - list all the ships you own".C::GOLD."\n/shipyard pos1".C::GRAY." - select a first position for your ship".C::GOLD."\n/shipyard pos2".C::GRAY." - select a second position for your ship".C::GOLD."\n/shipyard control".C::GRAY." - take control of a ship".C::GOLD."\n/shipyard info".C::GRAY." - display info of a certain ship");
 	}
-	
+
 	public function giveController(Player $player) : void{
 		
 		#give the controller item
 		$player->getInventory()->addItem($this->getControllerItem());
 	}
-	
+
 	public function getControllerItem() : Item{
 		
 		#set up the controller item
@@ -432,7 +563,7 @@ class Shipyard extends PluginBase implements Listener{
 		$crtl->setLore([C::RESET.C::GOLD."Use this to control your ship"]);
 		return $crtl;
 	}
-	
+
 	public function onDisable() : void{
 		$this->saveShips();
 	}

@@ -5,24 +5,30 @@ declare(strict_types=1);
 namespace AndreasHGK\Shipyard;
 
 use AndreasHGK\Shipyard\Shipyard;
+use AndreasHGK\Shipyard\weapons\WeaponManager;
 use pocketmine\math\Vector3;
 use pocketmine\Player;
 use pocketmine\block\Block;
 use pocketmine\level\Level;
 
 class Ship{
-	
-	private $shipyard;
+
+    CONST CORE = 49;
+    CONST WEAPON = 23;
+
+	public $shipyard;
 	public $name;
 	public $owner;
-	#public $faction;
 	public $pos1;
 	public $pos2;
 	public $level;
 	public $blocks = [];
 	public $class;
-	
-	public function __construct(Shipyard $plugin, string $name, string $owner, Vector3 $pos1, Vector3 $pos2, string $level){
+	protected $forward;
+
+    protected $weaponmanager;
+
+	public function __construct(Shipyard $plugin, string $name, string $owner, Vector3 $pos1, Vector3 $pos2, string $level, string $forward){
 		$this->shipyard = $plugin;
 		$this->name = strtolower($name);
 		$this->owner = $owner;
@@ -31,38 +37,47 @@ class Ship{
 		$this->level = $level;
 		$this->create();
 		$this->class = $this->getClass();
+		$this->weaponmanager = new WeaponManager($this, $this->getBaseWeaponBlocks());
+		$this->setForwardDirection($forward);
 	}
-	
-	#API stuff
+
+	public function getForwardDirection() : string{
+	    return $this->forward;
+    }
+
+    public function setForwardDirection(string $dir){
+	    $this->forward = $dir;
+    }
+
 	public function setOwner(string $name) : void{
 		$this->owner = $name;
 	}
-	
+
 	public function getName() : string{
 		return $this->name;
 	}
-	
+
 	public function getOwner() : string{
-		return $this->owner;
+	    return $this->owner;
 	}
 
 	public function getPos1() : Vector3{
 		return $this->pos1;
 	}
- 
+
 	public function getPos2() : Vector3{
 		return $this->pos2;
 	}
-	
+
 	public function getPos1AsArray() : array{
 		return array($this->pos1->getX(),$this->pos1->getY(),$this->pos1->getZ());
 	}
- 
+
 	public function getPos2AsArray() : array{
 		return array($this->pos2->getX(),$this->pos2->getY(),$this->pos2->getZ());
 	}
-	
-	public function getBlocks() : array{
+
+	public function getBlocks(bool $exclude = true) : array{
 		$blocks = [];
 
 		for($x = min($this->getPos1()->getX(), $this->getPos2()->getX()); $x <= max($this->getPos1()->getX(), $this->getPos2()->getX()); $x++){
@@ -70,7 +85,7 @@ class Ship{
 				for($z = min($this->getPos1()->getZ(), $this->getPos2()->getZ()); $z <= max($this->getPos1()->getZ(), $this->getPos2()->getZ()); $z++){
 						$pos = new Vector3($x, $y, $z);
 						$block = $this->shipyard->getServer()->getLevelByName($this->level)->getBlock($pos);
-					if($block->getId() != 0){	
+					if($block->getId() != 0 or $exclude == false){
 						array_push($blocks, $block);
 					}
 				}
@@ -78,22 +93,35 @@ class Ship{
 		}
 		return $blocks;
 	}
-	
+
 	public function countCores() : int{
 		$blocks = $this->getBlocks();
 		$cores = 0;
 		foreach($blocks as $block){
-			if($block->getId() == 49){
+			if($block->getId() == self::CORE){
 				$cores++;
 			}
 		}
 		return $cores;
 	}
-	
+
+	public function getBaseWeaponBlocks() : array{
+        $blocks = $this->getBlocks();
+        $hits = 0;
+        $weapons = [];
+        foreach($blocks as $block){
+            if($block->getId() == self::WEAPON){
+                $weapons[$hits] = $block;
+                $hits++;
+            }
+        }
+        return $weapons;
+    }
+
 	public function getSize() : int{
 		return count($this->getBlocks());
 	}
-	
+
 	public function getClass() : string{
 		switch(true){
 			case $this->getSize() <= 20:
@@ -126,7 +154,7 @@ class Ship{
 			break;
 		}
 	}
-	
+
 	public function getBlocks3D() : array{
 		$array = [];
 
@@ -141,15 +169,15 @@ class Ship{
 		}
 		return $array;
 	}
-	
+
 	public function getWorld() : string{
 		return $this->level;
 	}
-	
+
 	public function create() : void{
 		$this->shipyard->ships[$this->getName()] = $this;
 	}
-	
+
 	public function remove() : void{
 		unset($this->shipyard->ships[$this->getName()]);
 	}
